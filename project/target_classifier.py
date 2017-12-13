@@ -22,18 +22,31 @@ def init_vgg(sess):
                                             dtype=tf.float32,
                                             stddev=1e-1), name='opt_img' )
     tmp_img = tf.clip_by_value( opt_img, 0.0, 255.0 )
-    vgg = vgg16.vgg16(tmp_img, 'vgg16_weights.npz', sess)
+    vgg = vgg16.vgg16(tmp_img, '/home/dallin/deep_learning_data/vgg_weights/vgg16_weights.npz', sess)
     return vgg
 
 
 sess = tf.Session()
 
-data_file = '/home/dallin/Dropbox/Deep_Learning/Project/Dataset_atrium/atrium_annotations/atrium_gt.sqlite'
+data_file = '/home/dallin/deep_learning_data/Dataset_atrium/atrium_annotations/atrium_gt.sqlite'
 data = get_annotations(data_file)
 
 vgg = init_vgg(sess)
 
+layers = [ 'conv1_1', 'conv1_2',
+           'conv2_1', 'conv2_2',
+           'conv3_1', 'conv3_2', 'conv3_3',
+           'conv4_1', 'conv4_2', 'conv4_3',
+           'conv5_1', 'conv5_2', 'conv5_3' ]
+conv_ops = [ getattr( vgg, x ) for x in layers ]
 
+# There are 52 target id's in the dataset.
+
+# TODO: Set bounding box to upper left corner and make it a fixed width and height.
+# TODO: Crop both the image and bgs image to the bounding box
+# TODO: If the target ID is new, then query the classification network if it has a high probability of being a known class.
+# TODO: If low probability, train on the image for 30 frames?
+# TODO: Setup classification and training network.
 
 print('hello')
 

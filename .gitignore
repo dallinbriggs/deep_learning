@@ -2,4 +2,6 @@
 *.bbl
 *.blg
 *.idea/
-
+*.log
+*.pdf
+*.gz
