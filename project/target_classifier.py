@@ -42,7 +42,13 @@ conv_ops = [ getattr( vgg, x ) for x in layers ]
 
 # There are 52 target id's in the dataset.
 
+# TODO: Bring in images, one at a time.
 # TODO: Set bounding box to upper left corner and make it a fixed width and height.
+# Average width is 75.6 pixels, median is 76
+# Average height is 170.3 pixels, median is 194.
+
+
+
 # TODO: Crop both the image and bgs image to the bounding box
 # TODO: If the target ID is new, then query the classification network if it has a high probability of being a known class.
 # TODO: If low probability, train on the image for 30 frames?
