@@ -79,6 +79,22 @@ def get_id(i, data):
     return id_nums
 
 
+def fc( x, out_size=50, is_output=False, name="fc" ):
+
+    with tf.variable_scope(name):
+        x_flat = tf.contrib.layers.flatten(x)
+        image_shape = x_flat.get_shape().as_list()
+        W = tf.get_variable(name='W', shape=[image_shape[-1], out_size], dtype=tf.float32,
+                            initializer=tf.contrib.layers.variance_scaling_initializer())
+        b = tf.get_variable(name='b', shape=[out_size], dtype=tf.float32,
+                            initializer=tf.contrib.layers.variance_scaling_initializer())
+        if is_output is False:
+            op = tf.identity(tf.nn.relu(tf.nn.bias_add(tf.matmul(x_flat, W), b), name='Relu'), name='output')
+        else:
+            op = tf.identity(tf.nn.bias_add(tf.matmul(x_flat, W), b), name='output')
+        return op
+
+
 height = 170
 width = 60
 
@@ -97,9 +113,31 @@ layers = [ 'conv1_1', 'conv1_2',
            'conv5_1', 'conv5_2', 'conv5_3' ]
 conv_ops = [ getattr( vgg, x ) for x in layers ]
 
+fc0 = fc(conv_ops[-1], out_size = 256, name='fc0')
+fc1 = fc(fc0, out_size = 128, name='fc1')
+fc2 = fc(fc1, out_size=64, name='fc2')
+fc3 = fc(fc2, out_size=14, is_output=True, name='fc3')
+
+y_t = tf.placeholder(dtype=tf.float32, shape=[None], name='true_label')
+
+loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_t, logits=fc3))
+train_step = tf.train.AdamOptimizer(0.0001).minimize(loss)
+fc3_max = tf.arg_max(fc3, axis=1, output_type=tf.int32)
+
+loss_summary = tf.summary.scalar('loss', loss)
+
+timestamp = str(int(time.time()))
+writer = tf.summary.FileWriter("tensorboard/" + timestamp, sess.graph)
+sess.run(tf.global_variables_initializer())
+
+
 for i in range(0,4539):
     targets = get_targets(i, data, width, height)
     target_ids = get_id(i, data)
+    loss_sum = sess.run([loss_summary, train_step], feed_dict={y_t:target_ids})
+    writer.add_summary(loss_sum, i)
+    if target_ids > 13:
+        print('heo')
 
 
 

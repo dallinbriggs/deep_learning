@@ -1,6 +1,6 @@
 \documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this 
 %\documentclass{article}
-
+%\usepackage{nips10submit_e}
 %\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4 paper
 
 %\IEEEoverridecommandlockouts                              % This command is only needed if 
@@ -48,7 +48,7 @@
 \newcommand{\of}[1]{\ensuremath{\left(#1\right)}}
 
 \title{\LARGE \bf
-Light Weight Vision Based Multiple Target Tracking Using Deep Learning and Recursive RANSAC
+Lightweight Vision Based Multiple Target Tracking Using Deep Learning and Recursive RANSAC
 }
 
 
@@ -184,7 +184,7 @@ Another issue with using the data collected from the Anaconda UAV was that the c
 	\end{center}
 \end{figure}
 
-In order to progress faster with the development of the neural network, a video was recorded from on-top of the Joseph F. Smith Building at BYU. This video was recorded for another project prior to this project. The camera was set on a tripod and the video was still. This allowed for simple background subtraction to annotate the targets in the video. A resulting image from the annotated video can be seen in Figure \ref{fig:jfsb}. This provided much clearer targets as can be seen in Figure \ref{fig:jfsb_zoomed}. Even these images, however, were still not good enough for training a neural network. Although large color differences could be observed, several of the people were wearing similar colors. This made it nearly impossible for the network to distinguish one target from another. Another issue with this data set was that almost no targets would be obstructed at any time and then return to the line of sight.
+In order to progress faster with the development of the neural network, a video was recorded from on-top of the Joseph F. Smith Building at BYU. This video was recorded for another project prior to this project. The camera was set on a tripod and the video was still. This allowed for simple background subtraction to annotate the targets in the video. A resulting image from the annotated video can be seen in Figure \ref{fig:jfsb}. This provided much clearer targets as can be seen in Figure \ref{fig:jfsb_zoomed}. Even these images, however, were still not good enough for training a neural network. Although large color differences could be observed, several of the people were wearing similar colors. This made it nearly impossible for the network to distinguish one target from another. Another issue with this data set was that almost no targets would be obstructed at any time and then return to the line of sight. The dataset that was used in this project is discussed in section \ref{METHODS}. 
 
 \begin{figure}
 	\begin{center}
@@ -201,6 +201,17 @@ In order to progress faster with the development of the neural network, a video 
 		\label{fig:jfsb_zoomed}
 	\end{center}
 \end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{METHODS} \label{METHODS}
+
+In this section we will discuss the technical approach to creating a neural network to classify and identify targets. Much of the work so far in the project consisted of acquiring good data and preprocessing that data to provide reliable consistent images for the neural network to train on. Eventually the goal is to connect this neural network to the Visual MTT framework as shown in Figure \ref{fig:rransac}. In developing the neural network, however, the annotations provided in the dataset will be used in place of the Visual MTT framework.
+
+\subsection{Quantitative Metric}
+
+One of the benefits to using the Atrium dataset provided by \cite{jodoin2014urban} is that all targets visible in the video are annotated throughout the whole video. Each target, however, is assigned a new target identification each time the target disappears from the field of view and the reappears in the image frame. This allows us to easily test the neural network after training as if it is receiving a new track ID from Visual MTT. To measure the accuracy, however, that had to be tracked by hand. This wasn't too difficult because there were only 7 individual people shown in the video. That meant that after the network saw the first 7 unique people, the rest of the track identifiers were repeats. This was measured by hand by pausing the program periodically and viewing the image in the video and the output of the neural network. A more scientific method could be derived if more time were permitted.
+
+\subsection{Data Preparation} 
 
 Ultimately, a dataset was found that has been made publicly available from \cite{jodoin2014urban}. We used the Atrium dataset from this paper. This dataset came with clear images of pedestrians walking around with different colored clothes. The background color, as can be seen in Figure \ref{fig:atrium_full} is also very different from the color of the pedestrian. This dataset also came with background subtracted images along with detailed annotations. These annotations and background subtracted images is what would be used in training and testing the neural network. It is worth noting that one of the time consuming parts of using this dataset was that the annotations and background subtracted images were indexed differently than the actual video image. This issue caused a massive delay in setting up the network. Using the annotations provided by the data set, each target image was cropped down a $60\times170$ pixel image from the center point of the annotation. This size was chosen because it was the median size for all of the annotations. Any target image that didn't meet this minimum size was not used in the training or testing of the neural network. The image size had to be of fixed width and height to easily pass into the VGG-16 network. The final result of the cropping can be seen in Figure \ref{fig:atrium_combined}.
 
@@ -220,27 +231,51 @@ Ultimately, a dataset was found that has been made publicly available from \cite
 	\end{center}
 \end{figure}
 
+One trick that was use to improve results was that for each camera frame that came in, we made a copy of the horizontally flipped image. This allowed for the network to always train on at least two images at a time and not just over fit to each image as it comes in. 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{METHODS} \label{METHODS}
+\begin{figure*}
+	\begin{center}
+		\includegraphics[width=.95\textwidth]{cnn.png}
+		\caption{\textit{This was the final network used in this project.}} 
+		\label{fig:cnn}
+	\end{center}
+\end{figure*}
 
-In this section we will discuss the technical approach to creating a neural network to classify and identify targets. Much of the work so far in the project consisted of acquiring good data and preprocessing that data to provide reliable consistent images for the neural network to train on. Eventually the goal is to connect this neural network to the Visual MTT framework as shown in Figure \ref{fig:rransac}. In developing the neural network, however, the annotations provided in the dataset will be used in place of the Visual MTT framework.
+\subsection{Neural Network}
 
-\subsection{Quantitative Metric}
+The neural network that ended up being used in this report was a convolutional neural network (CNN) since the primary purpose of the network was a classification problem. In an attempt to make it robust and speedy, the first attempt at constructing a neural network was in following the SSD architecture given in \cite{liu2016ssd}. This architecture promised good results; however, we were unable to get this network to work. This was certainly a bug in the code. However, many hours were spent in trying to solve this problem and the problem persisted. 
 
-One of the benefits to using the Atrium dataset provided by \cite{jodoin2014urban} is that all targets visible in the video are annotated throughout the whole video. Each target, however, is assigned a new target identification each time the target disappears from the field of view and the reappears in the image frame. This allows us to easily test the neural network after training as if it is receiving a new track ID from Visual MTT. 
-
-
+The network that was ultimately used was the VGG-16 network through convolution 5-3. Then four fully connected layers were constructed with output sizes of 256, 128, 64, and 7, in that order. An illustration of this network can be seen in Figure \ref{fig:cnn}. This was a fairly traditional CNN. The primary way this CNN was unique was in the way data was passed to the CNN. With only one frame coming in at a time from a live video feed, this means that the network can only train on a few images at a time. When multiple targets were in the camera image, the network would be able to train on more than just one target. This caused several issues with feeding the network because the batch size was now a variable size. For this reason, I was unable to get the network to train.
 
 \section{RESULTS AND DISCUSSION} \label{RESULTS}
 
+Unfortunately, I was unable to get the network to train and classify the images. This is primarily because of the way a live video feed comes into the network. With traditional classification problems, training the network typically allows for passing in several images at a time in a batch. With a video streaming in, one target is viewed at a time. This can be problematic when training because the network can easily over fit for that one target. The other issue is that the network seems to need a variety of different classes to train against so that when it comes time to classify a target, it has multiple models to choose from. I have yet to come up with a way that tells the network when to train and when to start classifying. 
 
+Although I was unable to get the network to train successfully, a lot was learned in the process of collecting and processing the image data. Ultimately, the goal of this project was to run a lightweight network that was computationally efficient enough to be implemented on our UAV's flight computer, an NVIDIA Jetson TX2, as shown in Figure \ref{fig:tx2}. Part of the reason why the images were so far cropped down was to improve the speed at which the network would run. Attempting to crop the image to a small size that just barely fit the target without some kind of truth, such as the annotations found in the Atrium dataset, proved to be a really difficult task. Relying on motion detection and the Visual MTT framework to provide a good center point for the target caused much hardship in trying to train a network. I learned that the Visual MTT framework may not be entirely suitable for the approach of cropping the image around the target and then sending that through a neural net to train on. A better approach for a neural network track recognition component for the MTT framework would be to implement something such as the SSD network on the full image. The computational resources of the TX2 flight computer could still be moderately conserved if the network only ran when Visual MTT picked up a new track. Further investigation into this will be done outside of the scope of this project.
+
+A significant amount of time was given in reviewing the literature for this project and it was found that the SSD network seemed most promising for multiple targets. It seemed that CNN's were the most common when it came to classifying multiple targets. Another approach to this problem, however, would be to use a recurrent neural network (RNN) for each single target that is tracked by the Visual MTT framework. RNN's are very good at tracking objects in motion and it could prove to be valuable when the targets are highly occluded. Perhaps even a joint CNN and RNN for detecting and tracking the target could be used as proposed in \cite{fangtrack}.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{tx2.jpg}
+		\caption{\textit{The NVIDIA Jetson TX2 computer is used as an on-board flight computer. It has a low-power GPU that is capable of running lightweight neural networks.}} 
+		\label{fig:tx2}
+	\end{center}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{CONCLUSION} \label{CONCLUSION}
 
+This project was a difficult project. In total, I recorded at least 45 hours in researching, debugging, and writing. I spent the first 12 hours reading and researching different papers on how neural networks apply towards target tracking. Most of what I read about were neural networks that were very successful at tracking targets robustly, but were also very computationally heavy. Many of the algorithms presented in the references given were only able to run at a few frames per second on very expensive, heavy, and powerful graphics cards. While this works great for some ground based system, it is not feasible for small UAV's.
 
+The SSD network appears to be one of the fastest networks that is designed for tracking objects. For this reason, a modified version of it was selected to attempt to make a classification network for the Visual MTT process. Further debugging is required to get the network training on streaming video images coming into the network. 
+
+A significant amount of time was also spent in collecting and processing data for the project. In total, approximately 23 hours were spent in this section of the project. The reason so much time was given to collecting the data was because we did not have any video data of multiple moving targets on the ground from a fixed-wing UAV. The video data that was collected for the purpose of this project will be useful for research in the BYU MAGICC lab in the future. After the first video data was found to be unusable for this project, the next dataset that was attempted was the video recorded from the top of the JFSB. Using background subtraction to extract a pseudo truth bounding box around moving targets also proved difficult for this project as the camera's auto-focus was often trying to refocus the camera. As a result, many of the bounding boxes around the targets had a lot of error and again it caused issues with training a neural network. Finally, the Atrium dataset was found and this was very useful. Indexing to the correct image with the correct bounding box for each target, however, also proved to be a very difficult task because of how the dataset was labeled. Learning how to deal with no targets in an image, to one or many targets in an image was also a useful experience. A lot of time was given to solving indexing issues here.
+
+The remainder 10 hours given to the project went into writing this report. Part of why so much effort was given to this report was in the hopes that in a few weeks when I get this network running with Visual MTT, we can actually submit a conference paper since this would be a unique contribution, especially to the community that is trying to track targets autonomously with small UAV's. 
+
+Although the end result of the neural network is currently disappointing, I learned a lot in the process. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % \section*{APPENDIX}
