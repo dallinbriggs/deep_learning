@@ -1,4 +1,5 @@
-\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this line out if you need a4paper
+\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this 
+%\documentclass{article}
 
 %\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4 paper
 
@@ -47,7 +48,7 @@
 \newcommand{\of}[1]{\ensuremath{\left(#1\right)}}
 
 \title{\LARGE \bf
-Vision Based Multiple Target Tracking Using Deep Learning and Recursive RANSAC
+Light Weight Vision Based Multiple Target Tracking Using Deep Learning and Recursive RANSAC
 }
 
 
@@ -66,7 +67,7 @@ Vision Based Multiple Target Tracking Using Deep Learning and Recursive RANSAC
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
 
-This report describes the methods used to improve Visual MTT with Deep Learning.
+This report describes the methods used to improve the capabilities of Unmanned Aerial Vehicles in tracking targets autonomously on a lightweight, small platform that requires little computational resources. Unmanned aircraft are becoming increasingly more capable and smaller and the goal of this report is to show that a neural network can be effective in robustly tracking ground targets with small embedded single board computers on-board a small unmanned aircraft. This approach will be leveraging existing work done in this field (Recursive RANSAC) as the primary target tracker and neural networks to learn and classify targets. The target classification will be used in associating targets that are observed multiple times with previous tracks recorded by Recursive RANSAC.
 
 \end{abstract}
 
@@ -74,29 +75,170 @@ This report describes the methods used to improve Visual MTT with Deep Learning.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{INTRODUCTION}
 
+Multiple object tracking (MOT) is currently a popular topic in the deep learning community. It can be used for a variety of cases, but most are typically related to the robotics industry. Unmanned Aerial Vehicles (UAV's) have advanced rapidly in the past decade and are now being used for both military and commercial purposes. A common use case for UAV's in the military is for intelligence, surveillance, and reconnaissance (ISR) missions. 
+
+Currently, military UAV's are usually equipped with expensive gimballed cameras that are able to view targets such as people or vehicles from a high altitude. Those targets are being tracked by pilots who are remotely controlling the aircraft. This task can be difficult and time consuming for humans to track a target over the course of several hours. In order to improve the capabilities of UAV's to track ground targets autonomously, a neural network is proposed to learn targets and track them even after loosing visual line of sight temporarily.
+
+In this report, we will discuss the current capabilities of UAV's and where there exist technology gaps in their abilities to perform well in ISR missions. In section \ref{BACKGROUND}, we present the history and current work that has been done already to autonomously track ground targets from a ISR UAV. In this section, we will also discuss the importance of why a neural network could be useful in this application. Following this, in section \ref{METHODS}, our attempted methods to improve the existing capabilities with neural networks will be presented. The reader will then be able to read the results in \ref{RESULTS} and our final conclusion in \ref{CONCLUSION}.
+
+\subsection{SCOPE OF WORK}
+
+This project is not designed to create an end-to-end target tracking system using neural networks. That has already been done by several others already and it currently too computationally expensive to run on a small embedded computer. \textbf{The goal of this project is to integrate a neural network into the Visual Multi-Target Tracker (Visual MTT) that uses Recursive RANSAC to track targets. The roll of the neural network is to classify and identify the target when Visual MTT creates a new track.} With every new track Visual MTT creates, it will query the neural network and see if it has seen that target before. If it has, it Visual MTT will then associate this new target track with the old target track. The roll of a neural network in this system is illustrated in Figure \ref{fig:rransac}.
+
+Although the primary purpose of this project was to design a neural network around classifying target images, most of the time spent went towards collecting a good dataset to train and test on. Unfortunately, all of the data collected from actual flight tests and imagery at Brigham Young University wasn't able to be used because of the low quality of the images. Further details of this are discussed below.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{gimbal_far.png}
+		\caption{\textit{This image shows the observed targets from a low-cost small UAV. As can be seen, the targets are difficult to observe and this makes them difficult to track.}} 
+		\label{fig:gimbal_far}
+	\end{center}
+\end{figure}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{BACKGROUND}
+\begin{figure*}
+	\begin{center}
+		\includegraphics[width=.85\textwidth]{rransac.png}
+		\caption{\textit{This block diagram shows how a neural network plays a roll in the Visual MTT framework. The scope of the work for this project is shown in green.}} 
+		\label{fig:rransac}
+	\end{center}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{BACKGROUND AND MOTIVATION} \label{BACKGROUND}
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{gimbal_zoomed.png}
+		\caption{\textit{This image shows the observed targets that has been digitally zoomed in on.}} 
+		\label{fig:gimbal_zoomed}
+	\end{center}
+\end{figure}
 
 
-\section{MOTIVATION}
+In most use cases of military UAV's, ISR missions are primarily used to track ground targets that are of interest to the military. Receiving reliable intelligence about the ground target can be critical in saving the lives of many. Accurate information about what they are tracking and who they are tracking is extremely important because receiving wrong information can result in the undesirable consequence of the loss of innocent lives. Although current military UAV's are very capable in tracking ground targets, unfortunately, there are also many mistakes made and targets are lost. 
+
+\begin{figure*}
+	\begin{center}
+		\includegraphics[width=.95\textwidth]{ssd.png}
+		\caption{\textit{The SSD network from \cite{liu2016ssd}. It is a modified version of the VGG-16 network.}} 
+		\label{fig:ssd}
+	\end{center}
+\end{figure*}
+
+Lost ground targets are the result of a couple of factors. The first factor is that when viewing a target from a high altitude and a far distance, the target can be blurred by distortions in the air or the target might be low resolution because the capabilities of the camera on-board the aircraft. An example of what a small UAV might observe from a lower-quality camera can be seen in Figure \ref{fig:gimbal_far}. To make matters worse, the resolution quickly degrades as the image is digitally zoomed on the target as can be seen in Figure \ref{fig:gimbal_zoomed}. This same problem exists for larger, more expensive military grade UAV's, but to a lesser degree. Often, however, the larger UAV's are observing the target from much farther away and at a higher altitude.
+
+The second factor in why targets are lost is because of human error. The military currently uses pilots/co-pilots to visually track the target on the ground using a video feed they receive back at their ground station. This video feed is subject to temporary glitches in the streaming service that can cause interruption of the video. Upon regaining the video feed, the gimballed camera may need to be realigned with the target. Given the image as observed in Figure \ref{fig:gimbal_far}, this may be difficult for a human operator to do if the scene is in a cluttered, pattern-like environment such as a city. The operator may not be able to visually recognize the desired target anymore. Human operators are also subject to boredom and fatigue when tracking a ground target for many hours. 
+
+
+Work has been done to make target tracking autonomous and relatively robust. In \cite{niedfeldt2014multiple}, a method of tracking multiple targets using an algorithm called recursive random sample consensus (R-RANSAC) was developed at Brigham Young University for tracking multiple moving ground targets. This paper discusses the difficulties of tracking ground targets using computer vision methods because of noisy and spurious measurements, missed detections, and the interaction between multiple maneuvering targets. The method in \cite{niedfeldt2014multiple} presents a way to track moving targets by estimating their dynamic states using a Kalman filter. This is able to be done because of a linear acceleration model. R-RANSAC assumes that the target won't suddenly teleport or instantaneously stop or change directions. With this assumption, the Kalman filter can estimate and track the target by estimating the next state using the dynamics of a linear acceleration model. This method provides a great way to robustly track a continuously observed target that is constantly moving while being very computationally lightweight and efficient.
+
+R-RANSAC, however, is subject to some limitations. One of the primary limitations of R-RANSAC is that when a target is temporarily unobserved, ie. the target goes off the frame of the camera or the target moves behind an occlusion, the target is lost. The other main limitation with R-RANSAC is its inability to track static targets. If a target were to stop momentarily and then continue on, R-RANSAC would initialize a new track and make no correlation between the new track and the old one. It is the same case for when a target is temporarily blocked from the field of view.
+
+Work has also been done to improve R-RANSAC in \cite{ingersoll2015vision} and its data association problem. A Sequence Model (SM), which is a machine learner, is presented in \cite{ingersoll2015vision} to improve the data association from target tracks created by R-RANSAC. This is done by learning where the target location is in an inertial reference frame. This work greatly improved the ability for R-RANSAC to associate targets with previous target tracks by remembering where the target was last seen. However, error in measurements again still cause for lot of error to enter the system and often targets that were observed multiple times are often not associated with previous target tracks. Therefore, R-RANSAC still classifies them as new targets. 
+
+There has also been numerous papers published about how neural networks could be used in target tracking. There are online decision making algorithms as presented in \cite{xiang2015learning} that uses Markov decision process to model the lifetime of an object. This method deserves further investigation with application to the problem discussed in this paper. However, it is unclear how computationally heavy this algorithm is. 
+
+Other papers such as \cite{sadeghian2017tracking}, \cite{choi2015near}, and \cite{keuper2016multi} all present different methods on how do deal with tracking multiple targets. The methods presented in these papers, however, are all computationally too heavy for a small embedded computer on a small UAV.
+
+When only one object is observed, reinforcement learning can be a great approach such as in \cite{zhang2017deep}, \cite{choi2017visual}, \cite{yoo2017action}, and \cite{luo2017end}. These papers present much more computationally efficient ways to track a target; however, in the case of our problem where multiple targets are present, these solutions will not work.
+
+The most promising solutions for our problem are presented in \cite{liu2016ssd} and \cite{redmon2016you}. In \cite{liu2016ssd}, the single shot multibox detector (SSD) presents a very computationally efficient way of tracking multiple targets. The SSD network uses the VGG-16 as a base and convert two of the fully connected layers to convolutional layers, subsample parameters from those fully connected layers, and use the \textit{a trous} algorithm \cite{holschneider1990real} to fill in the gaps. The SSD network illustration from \cite{liu2016ssd} is shown in figure \ref{fig:ssd}. This network was chosen to be a base example for our problem because of its streamlined computational efficiency which even beat out YOLO from \cite{redmon2016you} as far as performance speed.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{anaconda.jpg}
+		\caption{\textit{This is the Anaconda UAV. This aircraft is what we used to collect our data for this project. Its wingspan is 7 feet.}} 
+		\label{fig:anaconda}
+	\end{center}
+\end{figure}
+
+
+\section{DATA ANALYSIS} \label{DATA}
+
+\subsection{Data Collection}
+Most of the time spent for this project went towards collecting good data that we could use to train and test our network. Unfortunately, this process took way longer than expected. First, a set of data was collected from a small fixed-wing UAV so the results would be as real as possible. 
+
+To simplify things, only two targets were present during the collection of the video data. This was intentionally the case to make the training and testing of the neural network much faster and simpler. We used the Anaconda UAV from ReadyMade RC products. This aircraft is capable of flying for an hour while carrying on-board a gimballed camera and an embedded computer. This aircraft can be seen in Figure \ref{fig:anaconda}. The camera we used was a low-cost global shutter camera called the PointGray Chameleon. It was on a two-axis gimbal mechanism that allowed the camera to pan and tilt. This camera setup can be seen in Figure \ref{fig:gimbal}. The images shown in \ref{fig:gimbal_far} and \ref{fig:gimbal_zoomed} are from this UAV and camera setup. The video was recorded on-board so we could test our neural network through several iterations.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{gimbal.jpg}
+		\caption{\textit{This PointGrey Chameleon camera attached to a gimbal is what was used to collect the video data.}} 
+		\label{fig:gimbal}
+	\end{center}
+\end{figure}
+
+\subsection{DATA PRE-PROCESSING}
+
+After collecting the data, we needed a way to process the video data so that we could crop the image around the target and feed it to our neural network. This task, however, proved to be difficult. Originally, the plan was to use the work developed in our research group here at Brigham Young University in tracking the targets in the video. More work has been done to \cite{ingersoll2015vision} and \cite{niedfeldt2014multiple} to improve the tracking capabilities. The frame work in these papers has been modified and put into the Robot Operating System (ROS) framework. This new framework for tracking targets using R-RANSAC is called Visual Multi-Target Tracking (Visual MTT). The Visual MTT architecture is new research and has yet to be published in another paper. That publication is forthcoming.
+
+In attempting to use the Visual MTT algorithm to observe the moving targets, although it was fairly reliable in observing moving objects, it wasn't very reliable at predicting the center mass of the object in the image. This meant that when attempting to use the reference point given from the output of the Visual MTT framework as the center point where we should crop our image around to give to the neural network to train/classify, the cropped image often gave a result of the image from behind or in front of the target. This was difficult to debug and caused a lot of problems in trying to train our network since the network would train on images that were not the target most of the time. 
+
+Another issue with using the data collected from the Anaconda UAV was that the cropped view of the targets had so little resolution that unless the target were wearing completely different colors, any difference between the targets was unobservable. This can be seen in Figure \ref{fig:gimbal_2}. This figure shows the second target that can be seen in \ref{fig:gimbal_far}. Therefore, this data was not going to work.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{gimbal_zoomed_2.png}
+		\caption{\textit{This image shows a second target that has been digitally zoomed in on.}} 
+		\label{fig:gimbal_2}
+	\end{center}
+\end{figure}
+
+In order to progress faster with the development of the neural network, a video was recorded from on-top of the Joseph F. Smith Building at BYU. This video was recorded for another project prior to this project. The camera was set on a tripod and the video was still. This allowed for simple background subtraction to annotate the targets in the video. A resulting image from the annotated video can be seen in Figure \ref{fig:jfsb}. This provided much clearer targets as can be seen in Figure \ref{fig:jfsb_zoomed}. Even these images, however, were still not good enough for training a neural network. Although large color differences could be observed, several of the people were wearing similar colors. This made it nearly impossible for the network to distinguish one target from another. Another issue with this data set was that almost no targets would be obstructed at any time and then return to the line of sight.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{jfsb.png}
+		\caption{\textit{This is a still image from video recorded from a stationary camera on top of a building.}} 
+		\label{fig:jfsb}
+	\end{center}
+\end{figure}
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{jfsb_zoomed.png}
+		\caption{\textit{This is a still image from video recorded from a stationary camera on top of a building.}} 
+		\label{fig:jfsb_zoomed}
+	\end{center}
+\end{figure}
+
+Ultimately, a dataset was found that has been made publicly available from \cite{jodoin2014urban}. We used the Atrium dataset from this paper. This dataset came with clear images of pedestrians walking around with different colored clothes. The background color, as can be seen in Figure \ref{fig:atrium_full} is also very different from the color of the pedestrian. This dataset also came with background subtracted images along with detailed annotations. These annotations and background subtracted images is what would be used in training and testing the neural network. It is worth noting that one of the time consuming parts of using this dataset was that the annotations and background subtracted images were indexed differently than the actual video image. This issue caused a massive delay in setting up the network. Using the annotations provided by the data set, each target image was cropped down a $60\times170$ pixel image from the center point of the annotation. This size was chosen because it was the median size for all of the annotations. Any target image that didn't meet this minimum size was not used in the training or testing of the neural network. The image size had to be of fixed width and height to easily pass into the VGG-16 network. The final result of the cropping can be seen in Figure \ref{fig:atrium_combined}.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{atrium_full.png}
+		\caption{\textit{A still image from the Atrium dataset from \cite{jodoin2014urban}.}} 
+		\label{fig:atrium_full}
+	\end{center}
+\end{figure}
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=.45\textwidth]{atrium_combined.png}
+		\caption{\textit{Cropped target image and matching background subtracted image. These images were used in the training of the network.}} 
+		\label{fig:atrium_combined}
+	\end{center}
+\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{METHODS} \label{METHODS}
+
+In this section we will discuss the technical approach to creating a neural network to classify and identify targets. Much of the work so far in the project consisted of acquiring good data and preprocessing that data to provide reliable consistent images for the neural network to train on. Eventually the goal is to connect this neural network to the Visual MTT framework as shown in Figure \ref{fig:rransac}. In developing the neural network, however, the annotations provided in the dataset will be used in place of the Visual MTT framework.
+
+\subsection{Quantitative Metric}
+
+One of the benefits to using the Atrium dataset provided by \cite{jodoin2014urban} is that all targets visible in the video are annotated throughout the whole video. Each target, however, is assigned a new target identification each time the target disappears from the field of view and the reappears in the image frame. This allows us to easily test the neural network after training as if it is receiving a new track ID from Visual MTT. 
+
+
+
+\section{RESULTS AND DISCUSSION} \label{RESULTS}
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{METHODS}
 
-
-
-
-\section{RESULTS AND DISCUSSION}
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{CONCLUSION}
+\section{CONCLUSION} \label{CONCLUSION}
 
 
 
